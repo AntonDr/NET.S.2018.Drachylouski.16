@@ -17,20 +17,13 @@ namespace GenericCollection
         private readonly int version;
 
         /// <summary>
-        /// The current
-        /// </summary>
-        private T current;
-
-        /// <summary>
         /// The index
         /// </summary>
         private int index;
 
         /// <summary>
-        /// The queue array
+        /// The queue
         /// </summary>
-        private readonly T[] queueArray;
-
         private readonly Queue<T> queue;
 
         #endregion
@@ -38,7 +31,7 @@ namespace GenericCollection
         #region Constructor
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="NestedEnumerator{T}"/> struct.
+        /// Initializes a new instance of the <see cref="NestedEnumerator{T}" /> struct.
         /// </summary>
         /// <param name="queue">The queue.</param>
         public NestedEnumerator(Queue<T> queue):this()
@@ -46,7 +39,6 @@ namespace GenericCollection
             version = queue.Version;
             index = -1;
             this.queue = queue;
-            this.queueArray = queue.ToArray();
         }
 
         #endregion
@@ -59,7 +51,7 @@ namespace GenericCollection
         /// <value>
         /// The current.
         /// </value>
-        public T Current => current;
+        public T Current { get; private set; }
 
         /// <summary>
         /// Gets the current.
@@ -97,7 +89,7 @@ namespace GenericCollection
                 throw new InvalidOperationException("Collection can't be change when enumerating");
             }
 
-            current = queueArray[index];
+            Current = queue.GetElement(index);
 
             return true;
         }
@@ -107,7 +99,7 @@ namespace GenericCollection
         /// </summary>
         public void Reset()
         {
-            current = default(T);
+            Current = default(T);
             index = -1;
         }
 

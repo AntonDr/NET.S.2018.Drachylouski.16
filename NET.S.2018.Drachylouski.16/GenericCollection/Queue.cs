@@ -2,24 +2,34 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace GenericCollection
 {
+    /// <summary>
+    /// 
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <seealso cref="System.Collections.Generic.IEnumerable{T}" />
     public class Queue<T> : IEnumerable<T>
     {
         #region Private fields
 
         /// <summary>
-        /// The list
+        /// The default capacity
         /// </summary>
-        private List<T> list;
-
+        private readonly int DefaultCapacity = 8;
         /// <summary>
-        /// The equality comparer
+        /// The grow factor
         /// </summary>
-        private IEqualityComparer<T> equalityComparer;
+        private readonly int GrowFactor = 2;
+
+        private T[] array;
+        private int size = 0;
+        private int head = 0;
+        private int tail = 0;
 
         #endregion
 
@@ -28,36 +38,44 @@ namespace GenericCollection
         /// <summary>
         /// Initializes a new instance of the <see cref="Queue{T}"/> class.
         /// </summary>
-        /// <param name="equalityComparer">The equality comparer.</param>
-        /// <exception cref="System.ArgumentNullException">equalityComparer</exception>
-        public Queue(IEqualityComparer<T> equalityComparer)
+        public Queue()
         {
-            list = new List<T>();
-            this.equalityComparer = equalityComparer ??
-                                    throw new ArgumentNullException($"{nameof(equalityComparer)} can't be null");
+            array=new T[DefaultCapacity];
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Queue{T}"/> class.
+        /// </summary>
+        /// <param name="capacity">The capacity.</param>
+        /// <exception cref="System.ArgumentException">capacity</exception>
+        public Queue(int capacity)
+        {
+            if (capacity<0)
+            {
+                throw new ArgumentException($"{nameof(capacity)} can't be negative");
+            }
+
+            this.Capacity = capacity;
+            array = new T[Capacity];
         }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Queue{T}"/> class.
         /// </summary>
         /// <param name="enumerable">The enumerable.</param>
-        /// <param name="equalityComparer">The equality comparer.</param>
-        /// <exception cref="System.ArgumentNullException">
-        /// equalityComparer
-        /// or
-        /// enumerable
-        /// </exception>
-        public Queue(IEnumerable<T> enumerable, IEqualityComparer<T> equalityComparer)
+        /// <exception cref="System.ArgumentNullException">enumerable</exception>
+        public Queue(IEnumerable<T> enumerable)
         {
-            this.equalityComparer = equalityComparer ??
-                                    throw new ArgumentNullException($"{nameof(equalityComparer)} can't be null");
-
             if (enumerable == null)
             {
                 throw new ArgumentNullException($"{nameof(enumerable)} can'tbe null");
             }
 
-            list = new List<T>(enumerable);
+            Capacity = enumerable.Count();
+
+            size = Capacity;
+
+            array =enumerable.ToArray();
         }
 
         #endregion
@@ -65,12 +83,20 @@ namespace GenericCollection
         #region Properties
 
         /// <summary>
+        /// Gets the capacity.
+        /// </summary>
+        /// <value>
+        /// The capacity.
+        /// </value>
+        public int Capacity { get; private set; }
+
+        /// <summary>
         /// Gets the count.
         /// </summary>
         /// <value>
         /// The count.
         /// </value>
-        public int Count => list.Count;
+        public int Count => size;
 
         /// <summary>
         /// Gets the version.
@@ -79,29 +105,6 @@ namespace GenericCollection
         /// The version.
         /// </value>
         public int Version { get; private set; }
-
-        /// <summary>
-        /// Gets the <see cref="T"/> at the specified index.
-        /// </summary>
-        /// <value>
-        /// The <see cref="T"/>.
-        /// </value>
-        /// <param name="index">The index.</param>
-        /// <returns></returns>
-        /// <exception cref="System.ArgumentOutOfRangeException">index</exception>
-        public T this[int index]
-        {
-            get
-            {
-                if (index < 0 || index > list.Count - 1)
-                {
-                    throw new ArgumentOutOfRangeException($"{nameof(index)} out of range");
-                }
-
-                return list[index];
-            }
-        }
-
         #endregion
 
         #region Public methods
@@ -110,10 +113,19 @@ namespace GenericCollection
         /// Determines whether [contains] [the specified item].
         /// </summary>
         /// <param name="item">The item.</param>
+        /// <param name="equalityComparer">The equality comparer.</param>
         /// <returns>
         ///   <c>true</c> if [contains] [the specified item]; otherwise, <c>false</c>.
         /// </returns>
-        public bool Contains(T item) => list.Contains(item, equalityComparer);
+        public bool Contains(T item, IEqualityComparer<T> equalityComparer = null)
+        {
+            if (equalityComparer == null)
+            {
+                equalityComparer = EqualityComparer<T>.Default;
+            }
+
+            return array.Contains(item, equalityComparer);
+        }
 
         /// <summary>
         /// Dequeues this instance.
@@ -122,15 +134,19 @@ namespace GenericCollection
         /// <exception cref="System.InvalidOperationException"></exception>
         public T Dequeue()
         {
-            if (Count == 0)
+            if (size == 0)
             {
                 throw new InvalidOperationException($"Queue already empty");
             }
 
-            T item = list.First();
-            list.Remove(item);
+            T removed = array[head];
+            array[head] = default(T);
+            head = (head + 1) % array.Length;
+            size--;
+
             Version++;
-            return item;
+
+            return removed;
         }
 
         /// <summary>
@@ -145,7 +161,7 @@ namespace GenericCollection
                 throw new InvalidOperationException($"Queue is  empty");
             }
 
-            return list.First();
+            return array[head];
         }
 
         /// <summary>
@@ -154,7 +170,29 @@ namespace GenericCollection
         /// <param name="item">The item.</param>
         public void Enqueue(T item)
         {
-            list.Add(item);
+            if (size == array.Length)
+            {
+                int newcapacity = array.Length * GrowFactor;
+                T[] newarray = new T[newcapacity];
+
+                if (head < tail)
+                {
+                    Array.Copy(array, head, newarray, 0, size);
+                }
+                else
+                {
+                    Array.Copy(array, head, newarray, 0, array.Length - head);
+                    Array.Copy(array, 0, newarray, array.Length - head, tail);
+                }
+
+                array = newarray;
+                head = 0;
+                tail = (size == newcapacity) ? 0 : size;
+            }
+
+            array[tail] = item;
+            tail = (tail + 1) % array.Length;
+            size++;
             Version++;
         }
 
@@ -163,14 +201,43 @@ namespace GenericCollection
         /// </summary>
         public void Clear()
         {
-            list.Clear();
+            if (head < tail)
+                Array.Clear(array, head, size);
+            else
+            {
+                Array.Clear(array,head,array.Length - head);
+                Array.Clear(array, 0, tail);
+            }
+
+            head = 0;
+            tail = 0;
+            size = 0;
             Version++;
         }
 
+        /// <summary>
+        /// To the array.
+        /// </summary>
+        /// <returns></returns>
         public T[] ToArray()
         {
-            T[] tempArray = list.ToArray();
+            T[] tempArray = array.ToArray();
             return tempArray;
+        }
+
+        /// <summary>
+        /// Gets the element.
+        /// </summary>
+        /// <param name="index">The index.</param>
+        /// <returns></returns>
+        /// <exception cref="System.ArgumentException">index</exception>
+        internal T GetElement(int index)
+        {
+            if (index<0)
+            {
+                throw new ArgumentException($"{nameof(index)} can't be less 0");
+            }
+            return array[(head + index) % array.Length];
         }
         #endregion
 
