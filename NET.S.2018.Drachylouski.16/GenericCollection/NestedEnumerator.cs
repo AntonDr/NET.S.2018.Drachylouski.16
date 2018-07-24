@@ -27,9 +27,11 @@ namespace GenericCollection
         private int index;
 
         /// <summary>
-        /// The queue
+        /// The queue array
         /// </summary>
-        private Queue<T> queue;
+        private readonly T[] queueArray;
+
+        private readonly Queue<T> queue;
 
         #endregion
 
@@ -44,6 +46,7 @@ namespace GenericCollection
             version = queue.Version;
             index = -1;
             this.queue = queue;
+            this.queueArray = queue.ToArray();
         }
 
         #endregion
@@ -94,7 +97,7 @@ namespace GenericCollection
                 throw new InvalidOperationException("Collection can't be change when enumerating");
             }
 
-            current = queue[index];
+            current = queueArray[index];
 
             return true;
         }

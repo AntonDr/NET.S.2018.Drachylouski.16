@@ -167,6 +167,11 @@ namespace GenericCollection
             Version++;
         }
 
+        public T[] ToArray()
+        {
+            T[] tempArray = list.ToArray();
+            return tempArray;
+        }
         #endregion
 
         #region GetEnumerator methods
